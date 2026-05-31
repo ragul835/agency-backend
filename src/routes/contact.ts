@@ -30,7 +30,7 @@ router.post('/', async (req, res) => {
 
     if (process.env.RESEND_API_KEY && process.env.ADMIN_EMAIL) {
       try {
-        await resend.emails.send({
+        const { data: resendData, error } = await resend.emails.send({
           from: 'onboarding@resend.dev',
           to: process.env.ADMIN_EMAIL,
           subject: `New Contact Form Submission - ${data.service}`,
@@ -44,7 +44,12 @@ router.post('/', async (req, res) => {
             <p>${data.message}</p>
           `,
         });
-        console.log('Email notification sent successfully via Resend');
+
+        if (error) {
+          console.error('Resend API Error:', error);
+        } else {
+          console.log('Email notification sent successfully via Resend', resendData);
+        }
       } catch (mailError) {
         console.error('Failed to send email notification:', mailError);
       }
