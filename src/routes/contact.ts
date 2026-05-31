@@ -1,20 +1,10 @@
 import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { z } from 'zod';
-import nodemailer from 'nodemailer';
+import { resend } from '../utils/resend';
 
 const router = Router();
 const prisma = new PrismaClient();
-
-const transporter = nodemailer.createTransport({
-  host: process.env.MAIL_HOST || 'smtp.zoho.in',
-  port: parseInt(process.env.MAIL_PORT || '587'),
-  secure: false, // true for 465, false for other ports
-  auth: {
-    user: process.env.MAIL_USERNAME,
-    pass: process.env.MAIL_PASSWORD,
-  },
-});
 
 const contactSchema = z.object({
   name: z.string().min(2),
@@ -38,26 +28,23 @@ router.post('/', async (req, res) => {
       }
     });
 
-    if (process.env.MAIL_USERNAME && process.env.ADMIN_EMAIL) {
-      const mailOptions = {
-        from: process.env.MAIL_USERNAME,
-        to: process.env.ADMIN_EMAIL,
-        subject: `New Agency Lead: ${data.name}`,
-        text: `New contact submission received!
-        
-Name: ${data.name}
-Email: ${data.email}
-Phone: ${data.phone || 'N/A'}
-Service Interest: ${data.service}
-
-Message:
-${data.message}
-`
-      };
-      
+    if (process.env.RESEND_API_KEY && process.env.ADMIN_EMAIL) {
       try {
-        await transporter.sendMail(mailOptions);
-        console.log('Email notification sent successfully');
+        await resend.emails.send({
+          from: 'onboarding@resend.dev',
+          to: process.env.ADMIN_EMAIL,
+          subject: `New Contact Form Submission - ${data.service}`,
+          html: `
+            <h2>New Client Inquiry</h2>
+            <p><strong>Name:</strong> ${data.name}</p>
+            <p><strong>Email:</strong> ${data.email}</p>
+            <p><strong>WhatsApp:</strong> ${data.phone}</p>
+            <p><strong>Service:</strong> ${data.service}</p>
+            <p><strong>Message:</strong></p>
+            <p>${data.message}</p>
+          `,
+        });
+        console.log('Email notification sent successfully via Resend');
       } catch (mailError) {
         console.error('Failed to send email notification:', mailError);
       }
